@@ -22,7 +22,7 @@ public:
     float label_confidence_;
 
     /// Feature 2: color histogram
-    cv::Mat color_hist_;
+    cv::MatND color_hist_;
 
     /// Feature 3: Position for Kalfilter
     Eigen::Vector3f position_;

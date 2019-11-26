@@ -3,7 +3,7 @@
 //
 
 #include <ros/ros.h>
-#include <mot_ros.h>
+#include <mot.h>
 #include <object_in_view.h>
 #include <vector>
 #include <cv_bridge/cv_bridge.h>
@@ -20,19 +20,17 @@ vector<ObjectInView*> detected_objects;
 void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_real_pose::ObjectsRealPoseConstPtr& objects)
 {
     if(objects->result.empty()){
-        ROS_INFO("No objects in view!");
+        //ROS_INFO("No objects in view!");
         return;
     }
 
     cv_bridge::CvImageConstPtr cv_ptr;
-    try
-    {
-     cv_ptr = cv_bridge::toCvShare(image); //sensor_msgs::image_encodings::RGB8
+    try{
+        cv_ptr = cv_bridge::toCvShare(image); //sensor_msgs::image_encodings::RGB8
     }
-    catch (cv_bridge::Exception& e)
-    {
-     ROS_ERROR("cv_bridge exception: %s", e.what());
-     return;
+    catch (cv_bridge::Exception& e){
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
     }
     cv::Mat image_this = cv_ptr->image;
 
@@ -59,7 +57,7 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     }
 
     if(objects_view_this.empty()){
-        ROS_INFO("Found objects. But no dynmaic objects!");
+        //ROS_INFO("Found objects. But no dynmaic objects!");
         return;
     }
 

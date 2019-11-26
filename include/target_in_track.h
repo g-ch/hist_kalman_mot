@@ -24,14 +24,14 @@ public:
 
 public:
 //    TargetInTrack(std::string name, double init_time, std::string label, float label_confidence,
-//                  cv::Mat color_hist, cv::Mat init_kalman_state, float sigma_acc):
+//                  cv::MatND color_hist, cv::Mat init_kalman_state, float sigma_acc):
 //            name_(std::move(name)),
 //            init_time_(init_time),
 //            last_observed_time_(init_time),
 //            observed_times_(1),
 //            label_(std::move(label)),
 //            label_confidence_(label_confidence),
-//            color_hist_(std::move(color_hist)),
+//            color_hist_(std::move(color_h_hist)),
 //            corrected_kalman_state_(std::move(init_kalman_state)),
 //            sigma_acc_(sigma_acc){
 //        ;

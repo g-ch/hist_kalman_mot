@@ -18,22 +18,15 @@ find_package(OpenCV REQUIRED)
 catkin_package(
 )
 
+include_directories(${catkin_INCLUDE_DIRS})
+
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 add_definitions(${EIGEN_DEFINITIONS})
 
-include_directories(
-    ${catkin_INCLUDE_DIRS}
-)
+#message(${catkin_INCLUDE_DIRS})
+
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${OpenCV_INCLUDE_DIRS})
-
-## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/hist_kalman_mot.cpp
-# )
-
-message(${OpenCV_LIBRARIES})
 
 add_executable(mot src/mot_ros.cpp)
 target_link_libraries(mot ${OpenCV_LIBS} ${catkin_LIBRARIES})
