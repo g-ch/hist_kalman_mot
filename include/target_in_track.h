@@ -5,35 +5,26 @@
 #ifndef HIST_KALMAN_MOT_TARGET_IN_TRACK_H
 #define HIST_KALMAN_MOT_TARGET_IN_TRACK_H
 
-#include <opencv2/opencv.hpp>
 #include <iostream>
-#include <string>
 #include <utility>
+#include <object_in_view.h>
 
-using namespace std;
-
-class TargetInTrack{
+class TargetInTrack : public ObjectInView{
 public:
-    string name_;
-private:
     double init_time_;
-    double last_observed_time_;
-    int observed_times_;
+    int number_observed_times_;
 
-    /// Feature 1: label
-    string label_;
-    float label_confidence_;
+    /// Feature 1: label (defined in parent class)
 
-    /// Feature 2: color histogram
-    cv::MatND color_hist_;
+    /// Feature 2: color histogram (defined in parent class)
 
     /// Feature 3: Kalman state
     cv::Mat corrected_kalman_state_;
     float sigma_acc_;  // standard deviation for acceleration
 
 public:
-//    TargetInTrack(string name, double init_time, string label, float label_confidence,
-//                  cv::MatND color_hist, cv::Mat init_kalman_state, float sigma_acc):
+//    TargetInTrack(std::string name, double init_time, std::string label, float label_confidence,
+//                  cv::Mat color_hist, cv::Mat init_kalman_state, float sigma_acc):
 //            name_(std::move(name)),
 //            init_time_(init_time),
 //            last_observed_time_(init_time),
@@ -47,35 +38,35 @@ public:
 //    }
 
     TargetInTrack(){
-        cout << "new_target created!" <<endl;
+        std::cout << "new_target created!" <<std::endl;
     };
 
     ~TargetInTrack(){
         ;
     }
 
-    void get_label(string &target_label, float &target_label_confidence){
-        ;
-    }
-
-    void get_hist(cv::MatND &target_color_hist){
-        ;
-    }
-
-    void get_kalman_state(cv::Mat &target_kalman_state, cv::Mat &target_state_var, float &target_sigma_acc){
-        ;
-    }
+//    void getLabel(std::string &target_label, float &target_label_confidence){
+//        ;
+//    }
+//
+//    void getHist(cv::Mat &target_color_hist){
+//        ;
+//    }
+//
+//    void getKalmanState(cv::Mat &target_kalman_state, cv::Mat &target_state_var, float &target_sigma_acc){
+//        ;
+//    }
 
 private:
-    void update_label_confidence(){
+    void updateLabelConfidence(){
         ;
     }
 
-    void update_kalman_state(){
+    void updateKalmanState(){
         ;
     }
 
-    int update_target(){
+    int updateTarget(){
         return 0;
     }
 
