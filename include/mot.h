@@ -29,25 +29,45 @@ public:
           use_feature_kalman(true)
     {
         std::cout<<"Multiple Object Tracker created!"<<std::endl;
-        objects_map["aa"] = new TargetInTrack();
-        objects_map["aa"] -> name_ = "hh";
+//        objects_map["aa"] = new TargetInTrack();
+//        objects_map["aa"] -> name_ = "hh";
     }
     ~MOT(){;}
 
     void matchAndCreateObjects(std::vector<ObjectInView*> &objects_this){
         cv::imshow("ob", objects_this[0]->color_image_);
-        cv::waitKey(2);
-        calHistHS(objects_this[0]->color_image_,  objects_this[0]->color_hist_);
+        cv::waitKey(1);
 
-        static bool first_time = true;
-        static cv::MatND hist_base;
-        if(first_time){
-            first_time = false;
-            objects_this[0]->color_hist_.copyTo(hist_base);
+        /** Calculate histogram for every object image ROI **/
+        if(use_feature_hist){
+            for(const auto & object_i : objects_this){
+                calHistHS(object_i->color_image_,  object_i->color_hist_);
+            }
         }
-        else{
-            double similarity = costCalHistHS(hist_base,  objects_this[0]->color_hist_);
-            std::cout << similarity << std::endl;
+
+        // Test matching by color histogram
+//        static bool first_time = true;
+//        static cv::MatND hist_base;
+//        if(first_time){
+//            first_time = false;
+//            objects_this[0]->color_hist_.copyTo(hist_base);
+//        }
+//        else{
+//            double similarity = costCalHistHS(hist_base,  objects_this[0]->color_hist_);
+//            std::cout << similarity << std::endl;
+//        }
+
+        if(objects_map.size() > 0){
+            /** Suppose only one dynamic object insight to test Kalman filter **/
+            objects_map["Object0"]->updateTarget(objects_this[0]);
+
+        }else{  // No object candidates, create directly.
+            for(const auto & object_i : objects_this)
+            {
+                auto candidate_temp = new TargetInTrack("Object"+std::to_string(id_counter), object_i, 1.f);
+                objects_map["Object"+std::to_string(id_counter)] = candidate_temp;
+                id_counter ++;
+            }
         }
 
     }
@@ -77,13 +97,12 @@ private:
 
         cv::calcHist(&hsv_img, 1, channels, cv::Mat(), hist, 2, hist_size, ranges, true, false);
         cv::normalize(hist, hist, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
-        std::cout << hist.depth() << std::endl;
     }
 
     double costCalHistHS(const cv::MatND &hist1, const cv::MatND &hist2){
         /* hist1 and hist2 should be normalized and have the same dimension */
         // TODO: Test different comparison method. Note the range of the results would be different.
-        return 1.0 - cv::compareHist(hist1, hist2, cv::HISTCMP_CORREL); //cv::HISTCMP_BHATTACHARYYA
+        return cv::compareHist(hist1, hist2, cv::HISTCMP_CORREL); //cv::HISTCMP_BHATTACHARYYA
     }
 
     void costCalKalman();

@@ -12,7 +12,6 @@
 
 class ObjectInView{
 public:
-    std::string name_;
     double observed_time_;
 
     cv::Mat color_image_;

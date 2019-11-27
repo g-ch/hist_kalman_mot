@@ -41,13 +41,12 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
         if(object_i.label == "person")
         {
             auto* ob_temp = new ObjectInView();
-            ob_temp->name_ = object_i.label;
             ob_temp->observed_time_ = image->header.stamp.toSec();
             ob_temp->color_image_ = image_this(cv::Range(object_i.pix_lt_y, object_i.pix_rb_y),
                                                cv::Range(object_i.pix_lt_x, object_i.pix_rb_x));
             ob_temp->label_ = object_i.label;
             ob_temp->label_confidence_ = object_i.confidence;
-            /// Set detected real position
+            /** Set detected real position **/
             ob_temp->position_[0] = object_i.x;
             ob_temp->position_[1] = object_i.y;
             ob_temp->position_[2] = object_i.z;
@@ -61,6 +60,7 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
         return;
     }
 
+    /** If any dynamic object is detected, start matching. **/
     mot.matchAndCreateObjects(objects_view_this);
 }
 
