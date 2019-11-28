@@ -97,32 +97,33 @@ public:
     int updateTarget(ObjectInView* object){
         double delt_t_ = object->observed_time_ - last_observed_time_;
         if(delt_t_ <= 0.f){
-            std::cout << "Error: delt_t_ can not be negative! Please check the time stamp!" << std::endl;
+            std::cout << "Error: delt_t_ can not be negative! Please check the time stamp! delt_t_=" << delt_t_ << std::endl;
+            return 0;
         }
-
-        last_observed_time_ = object->observed_time_;
 
         updateHist(object->color_hist_);
         updateKalmanState(delt_t_, object->position_);
         updateLabelConfidence(object->label_, object->label_confidence_);
 
+        last_observed_time_ = object->observed_time_;
+        number_observed_times_ ++;
+
         return 1;
     }
 
-    float futurePassProbabilityMahalanobis(float delt_t, Eigen::Vector3f position, float cov_delt_t_limitation){
+    float futurePassProbabilityMahalanobis(double delt_t, Eigen::Vector3f position, double cov_delt_t_limitation){
         /** Paras @ delt_t: time interval from now to the experted prediction time
          * Paras @ position: to predict whether the object will pass the position at the experted prediction time.
          * Paras @ cov_delt_t_limitation: limit the delt_t to limit distribution_cov. In case the covariance is too large that passing every point is possible.
          * **/
         Eigen::Vector3f predicted_position_center = state_velocity_ * delt_t + state_position_;  /// Predict most likely position position. Constant velocity model
+//        std::cout << "position predicted = (" << predicted_position_center[0] << ", " << predicted_position_center[1] <<", "<< predicted_position_center[2]<<")"<<std::endl;
+//        std::cout << "position cal point = (" << position[0] << ", " << position[1]<<", "<< position[2]<<")"<<std::endl;
 
-        std::cout << "position predicted = (" << predicted_position_center[0] << ", " << predicted_position_center[1] <<", "<< predicted_position_center[2]<<")"<<std::endl;
-        std::cout << "position observed = (" << position[0] << ", " << position[1]<<", "<< position[2]<<")"<<std::endl;
-
-        float cov_delt_t = std::min(cov_delt_t_limitation, delt_t);
+        double cov_delt_t = std::min(cov_delt_t_limitation, delt_t);
         Eigen::Matrix3f distribution_cov = Eigen::Matrix3f::Identity() * sigma_acc_ * 0.25 * cov_delt_t * cov_delt_t;
 
-        return calMahalanobisDistance3D(position, predicted_position_center, distribution_cov);
+        return (float)calMahalanobisDistance3D(position, predicted_position_center, distribution_cov);
     }
 
 private:
@@ -147,7 +148,7 @@ private:
 
         label_confidence_ = std::max(label_confidence_, 0.f);
         label_confidence_ = std::min(label_confidence_, 1.f);
-        std::cout<<label_<<": confidence = "<<label_confidence_<<std::endl;
+//        std::cout<<label_<<": confidence = "<<label_confidence_<<std::endl;
     }
 
     void updateHist(cv::MatND& color_hist){

@@ -22,7 +22,6 @@ public:
 private:
     std::map<std::string, TargetInTrack*> objects_map;
     std::map<std::string, TargetInTrack*>::iterator map_iterator;
-    Munkres<float> munkres_solver;
     long int id_counter;
 
 public:
@@ -44,7 +43,7 @@ public:
 
         /** Calculate histogram for every object image ROI if use color histogram feature**/
         if(use_feature_hist){
-            for(const auto & object_i : objects_this){
+            for(auto & object_i : objects_this){
                 calHistHS(object_i->color_image_,  object_i->color_hist_);
             }
         }
@@ -66,6 +65,7 @@ public:
             for(int row=0; row<num_objects_in_view; row++)
             {
                 map_iterator = objects_map.begin();
+
                 for(int col=0; col<num_objects_in_storage; col++)  // col is one-to-one corresponding to map_iterator.
                 {
                     float similarity_position = 0.f, similarity_histogram = 0.f, similarity_label = 0.f;
@@ -104,7 +104,18 @@ public:
                 }
             }
 
+
+            Munkres<float> munkres_solver;
             munkres_solver.solve(matrix_cost);
+//            /// Show the matrix
+//            for ( int row = 0 ; row < num_objects_in_view ; row++ ) {
+//                for ( int col = 0 ; col < num_objects_in_storage ; col++ ) {
+//                    std::cout.width(2);
+//                    std::cout << matrix_cost(row,col) << ",";
+//                }
+//                std::cout << std::endl;
+//            }
+//            std::cout << std::endl;
 
             std::vector<std::string> allocation_result;
             static std::string label_no_match = "nothing";
@@ -115,7 +126,7 @@ public:
                 bool found_match = false;
                 for(int col=0; col<num_objects_in_storage; col++)  // col is one-to-one corresponding to map_iterator.
                 {
-                    if(matrix_cost(row, col) == 0.f && matrix_gate(row, col) != 0.f){  // Found a match
+                    if(matrix_cost(row, col) == 0.f && matrix_gate(row, col) > 0.f){  // Found a match
                         allocation_result.push_back(map_iterator->first);
                         found_match = true;
                         break;
@@ -128,28 +139,29 @@ public:
                 }
             }
 
-//            if(allocation_result.size() != objects_this.size()){ std::cout << "Code error !!!!!!!!!!!! chg"<< std::endl; return;}
-
-            for(auto & result_i : allocation_result){
-
-            }
-
-            /** Update objects in storage or create new objects according to allocation result **/
-            for(int i=0; i<allocation_result.size(); i++)
+            /** Update objects in storage according to allocation result **/
+            for(int i=0; i<allocation_result.size(); i++)  //allocation_result.size() == objects_this.size()
             {
                 if(allocation_result[i]!=label_no_match){  /// Found a match
                     objects_map[allocation_result[i]]->updateTarget(objects_this[i]);
+
                     objects_this[i]->color_to_show_ = objects_map[allocation_result[i]]->color_to_show_;  /// Update name and color
                     objects_this[i]->name_ = objects_map[allocation_result[i]]->name_;
 
-                }else{  /// Found no match. Create a new one.
+                }
+            }
 
+            /** Create new objects according to allocation result **/
+            for(int i=0; i<allocation_result.size(); i++)
+            {
+                /// Found no match. Create a new one. Note new objects should not be used to match objects in this frame. So this should be in another loop.
+                if(allocation_result[i]==label_no_match){
                     cv::Scalar random_color = cv::Scalar(rng.uniform(0,255),rng.uniform(0,255),rng.uniform(0,255));
                     objects_this[i]->color_to_show_ = random_color;
                     objects_this[i]->name_ = objects_this[i]->label_ + std::to_string(id_counter);
 
                     auto candidate_temp = new TargetInTrack(objects_this[i]->label_ + std::to_string(id_counter), objects_this[i]);
-                    objects_map[objects_this[i]->label_ + std::to_string(id_counter)] = candidate_temp;
+                    objects_map[objects_this[i]->label_ + std::to_string(id_counter)] = candidate_temp;  // Create new
                     id_counter ++;
                 }
             }
@@ -162,7 +174,7 @@ public:
                 object_i->name_ = object_i->label_ + std::to_string(id_counter);
 
                 auto candidate_temp = new TargetInTrack(object_i->label_ + std::to_string(id_counter), object_i);
-                objects_map[object_i->label_ + std::to_string(id_counter)] = candidate_temp;
+                objects_map[object_i->label_ + std::to_string(id_counter)] = candidate_temp; // Create new
                 id_counter ++;
             }
         }
@@ -181,9 +193,9 @@ private:
 
     float similarityPositionDist(ObjectInView* object, TargetInTrack* target_stored){
         /** Similarity of position judging by Mahalanobis Distance. [0,1]**/
-        float delt_t = object->observed_time_ - target_stored->last_observed_time_;
+        double delt_t = object->observed_time_ - target_stored->last_observed_time_;
         if(delt_t <= 0.f){
-            std::cout << "Error: delt_t should be position!" << std::endl;
+            std::cout << "Error: delt_t should be positive!" << std::endl;
             return 0.f;
         }else{
             return exp(-target_stored->futurePassProbabilityMahalanobis(delt_t, object->position_, 0.5));  // TODO: tune the cov_delt_t_limitation parameter

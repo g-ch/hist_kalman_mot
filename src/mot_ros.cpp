@@ -19,6 +19,13 @@ vector<ObjectInView*> detected_objects;
 
 void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_real_pose::ObjectsRealPoseConstPtr& objects)
 {
+    static double last_update_time = 0.0;
+    if(image->header.stamp.toSec() < last_update_time){
+        std::cout << "$$$$$$$$$$ Time stamp in callback makes no sense! $$$$$$$$" << std::endl;
+        return;
+    }
+    last_update_time = image->header.stamp.toSec();
+
     if(objects->result.empty()){
         //ROS_INFO("No objects in view!");
         return;
@@ -56,8 +63,6 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
 
             objects_view_this.push_back(ob_temp);
         }
-
-        if(objects_view_this.size() > 1) std::cout << "More than 1 people detected!*************"<< objects_view_this.size() << std::endl;
     }
 
     if(objects_view_this.empty()){
@@ -77,7 +82,6 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     }
     cv::imshow("result", image_this);
     cv::waitKey(1);
-
 }
 
 int main(int argc, char** argv)

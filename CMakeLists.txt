@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(hist_kalman_mot)
 
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-add_definitions(-std=c++11 -g -O2 -ftree-vectorize -march=native)
+add_definitions(-std=c++11 -g -O1 -ftree-vectorize -march=native)
 
 find_package(catkin REQUIRED COMPONENTS
     roscpp
