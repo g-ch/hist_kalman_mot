@@ -18,6 +18,7 @@ public:
     double init_time_;
     int number_observed_times_;
     double last_observed_time_;
+    cv::Scalar color_to_show_;
 
     /** Feature 1: label **/
     std::string label_;
@@ -29,15 +30,17 @@ public:
     /** Feature 3: Kalman state **/
     Eigen::Vector3f state_position_;
     Eigen::Vector3f state_velocity_;
-    float sigma_acc_;  // standard deviation for acceleration
+
 
 private:
     Eigen::Vector3f observed_position_;
     std::vector<cv::KalmanFilter*> position_KF_;
     std::vector<cv::Mat> measurement_KF_;
+    std::map<std::string, float> sigma_acc_map_;
+    float sigma_acc_;  // Variance for acceleration
 
 public:
-    TargetInTrack(std::string name, ObjectInView* object, float sigma_acc):
+    TargetInTrack(std::string name, ObjectInView* object):
             name_(std::move(name)),
             init_time_(object->observed_time_),
             last_observed_time_(object->observed_time_),
@@ -45,8 +48,14 @@ public:
             label_(object->label_),
             label_confidence_(object->label_confidence_),
             color_hist_(object->color_hist_),
-            observed_position_(object->position_),
-            sigma_acc_(sigma_acc){
+            observed_position_(object->position_)
+            {
+
+        /** Initialize acceleration sigma map, acc is a Gaussian distribution (0, sigma) **/
+        // TODO: add more sigma_acc_ categories
+        sigma_acc_map_["person"] = 1.f;
+        sigma_acc_map_["car"] = 3.f;
+        resetSigmaAcc();
 
         /** Define Kalman filters and related matrices, x y z are processed individually **/
         auto position_KF_x = new cv::KalmanFilter(2,1,0);
@@ -73,36 +82,78 @@ public:
             position_KF_[i]->statePost = (cv::Mat_<float>(2,1) << observed_position_[i], 0.f); // initialize states (position, velocity=0).
         }
 
-        std::cout<<"Target: "<< name_ <<" created! z=" << observed_position_[2] << std::endl;
-    }
+        /** Other initialization **/
+        state_position_ = observed_position_;
+        state_velocity_ << 0.f, 0.f, 0.f;
+        color_to_show_ = object->color_to_show_;
 
-//    TargetInTrack(){
-//        std::cout << "new_target created!" <<std::endl;
-//    };
+        std::cout<<"New target: "<< name_ <<" created! z=" << observed_position_[2] << std::endl;
+    }
 
     ~TargetInTrack(){
         ;
     }
 
     int updateTarget(ObjectInView* object){
-//        std::cout << "position = (" << object->position_[0] << ", " << object->position_[1]<<", "<< object->position_[2]<<")"<<std::endl;
         double delt_t_ = object->observed_time_ - last_observed_time_;
         if(delt_t_ <= 0.f){
             std::cout << "Error: delt_t_ can not be negative! Please check the time stamp!" << std::endl;
         }
 
         last_observed_time_ = object->observed_time_;
+
+        updateHist(object->color_hist_);
         updateKalmanState(delt_t_, object->position_);
+        updateLabelConfidence(object->label_, object->label_confidence_);
+
         return 1;
     }
 
-private:
-    void updateLabelConfidence(){
-        ;
+    float futurePassProbabilityMahalanobis(float delt_t, Eigen::Vector3f position, float cov_delt_t_limitation){
+        /** Paras @ delt_t: time interval from now to the experted prediction time
+         * Paras @ position: to predict whether the object will pass the position at the experted prediction time.
+         * Paras @ cov_delt_t_limitation: limit the delt_t to limit distribution_cov. In case the covariance is too large that passing every point is possible.
+         * **/
+        Eigen::Vector3f predicted_position_center = state_velocity_ * delt_t + state_position_;  /// Predict most likely position position. Constant velocity model
+
+        std::cout << "position predicted = (" << predicted_position_center[0] << ", " << predicted_position_center[1] <<", "<< predicted_position_center[2]<<")"<<std::endl;
+        std::cout << "position observed = (" << position[0] << ", " << position[1]<<", "<< position[2]<<")"<<std::endl;
+
+        float cov_delt_t = std::min(cov_delt_t_limitation, delt_t);
+        Eigen::Matrix3f distribution_cov = Eigen::Matrix3f::Identity() * sigma_acc_ * 0.25 * cov_delt_t * cov_delt_t;
+
+        return calMahalanobisDistance3D(position, predicted_position_center, distribution_cov);
     }
 
-    void updateHist(){
-        ;
+private:
+    void updateLabelConfidence(std::string &label, float &confidence){
+        /** Start from Bayes law and end up with increase or decrease a constant value in log-wise form. **/
+        static const float decrease_log_p = 0.1f;
+        static const float increase_log_p = 0.1f;
+        static const float label_change_threshold = 0.2f;
+
+        if(label == label_){
+            label_confidence_ += increase_log_p;
+        }else{
+            label_confidence_ -= decrease_log_p;
+        }
+
+        if(label_confidence_ <= label_change_threshold){  /// Change label and name if confidence is too low.
+            label_ = label;
+            name_ = label_ + "_" + name_;  /// add a new label on the name
+            label_confidence_ = confidence;
+            resetSigmaAcc();
+        }
+
+        label_confidence_ = std::max(label_confidence_, 0.f);
+        label_confidence_ = std::min(label_confidence_, 1.f);
+        std::cout<<label_<<": confidence = "<<label_confidence_<<std::endl;
+    }
+
+    void updateHist(cv::MatND& color_hist){
+        /** Only keep the latest histogram for now. **/
+        //TODO: add key histograms
+        color_hist_ = color_hist;
     }
 
     void updateKalmanState(double &time_interval, Eigen::Vector3f &observed_position){
@@ -119,10 +170,23 @@ private:
             state_position_[i] = position_KF_[i]->statePost.at<float>(0);
             state_velocity_[i] = position_KF_[i]->statePost.at<float>(1);
         }
-        std::cout << "time interval = "<< position_KF_[0]->transitionMatrix.at<float>(0,1) << std::endl;
-        std::cout << "position observed = (" << observed_position[0] << ", " << observed_position[1]<<", "<< observed_position[2]<<")"<<std::endl;
-        std::cout << "position corrected = (" << state_position_[0] << ", " << state_position_[1]<<", "<< state_position_[2]<<")"<<std::endl;
-        std::cout << "velocity estimated = (" << state_velocity_[0] << ", " << state_velocity_[1]<<", "<< state_velocity_[2]<<")"<<std::endl;
+//        std::cout << "time interval = "<< position_KF_[0]->transitionMatrix.at<float>(0,1) << std::endl;
+////        std::cout << "position observed = (" << observed_position[0] << ", " << observed_position[1]<<", "<< observed_position[2]<<")"<<std::endl;
+//        std::cout << "position corrected = (" << state_position_[0] << ", " << state_position_[1]<<", "<< state_position_[2]<<")"<<std::endl;
+//        std::cout << "velocity estimated = (" << state_velocity_[0] << ", " << state_velocity_[1]<<", "<< state_velocity_[2]<<")"<<std::endl;
+    }
+
+    int resetSigmaAcc(){
+        /** Reset acceleration variance when a new object comes or when the label of an object changes.
+         * Return 1 if variance for this label is in the sigma_acc_map_. Otherwise use default_sigma_acc and return 0 **/
+        static float default_sigma_acc = 1.f;
+        if(sigma_acc_map_.count(name_) > 0){
+            sigma_acc_ = sigma_acc_map_[name_];
+            return 1;
+        }else{
+            sigma_acc_ = default_sigma_acc;  // if no corresponding sigma_acc_ found, use default sigma_acc_.
+            return 0;
+        }
     }
 };
 

@@ -41,18 +41,23 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
         if(object_i.label == "person")
         {
             auto* ob_temp = new ObjectInView();
+            ob_temp->name_ = object_i.label;
             ob_temp->observed_time_ = image->header.stamp.toSec();
             ob_temp->color_image_ = image_this(cv::Range(object_i.pix_lt_y, object_i.pix_rb_y),
                                                cv::Range(object_i.pix_lt_x, object_i.pix_rb_x));
+            ob_temp->img_pixel_rect_ = cv::Rect(object_i.pix_lt_x, object_i.pix_lt_y, object_i.pix_rb_x-object_i.pix_lt_x, object_i.pix_rb_y-object_i.pix_lt_y);
             ob_temp->label_ = object_i.label;
             ob_temp->label_confidence_ = object_i.confidence;
-            /** Set detected real position **/
+            /** Set detected real position. If you want to use pixel position for the Kalman filter,
+             * just set position position_[i] as pixel position. You may set position_[i]=0 to make it uselsess**/
             ob_temp->position_[0] = object_i.x;
             ob_temp->position_[1] = object_i.y;
             ob_temp->position_[2] = object_i.z;
 
             objects_view_this.push_back(ob_temp);
         }
+
+        if(objects_view_this.size() > 1) std::cout << "More than 1 people detected!*************"<< objects_view_this.size() << std::endl;
     }
 
     if(objects_view_this.empty()){
@@ -62,9 +67,18 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
 
     /** If any dynamic object is detected, start matching. **/
     mot.matchAndCreateObjects(objects_view_this);
+
+    /** Show on image **/
+    for(const auto & result_i : objects_view_this)
+    {
+        cv::rectangle(image_this, result_i->img_pixel_rect_, result_i->color_to_show_, 2);
+        cv::putText(image_this, result_i->name_, cv::Point(result_i->img_pixel_rect_.x, result_i->img_pixel_rect_.y),
+                cv::FONT_HERSHEY_SIMPLEX,1, result_i->color_to_show_, 2);
+    }
+    cv::imshow("result", image_this);
+    cv::waitKey(1);
+
 }
-
-
 
 int main(int argc, char** argv)
 {

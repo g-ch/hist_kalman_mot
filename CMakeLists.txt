@@ -28,5 +28,10 @@ add_definitions(${EIGEN_DEFINITIONS})
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
+include_directories(/usr/local/include/munkres)
+set(MunkresLIB
+        /usr/local/lib/libmunkres.a
+        )
+
 add_executable(mot src/mot_ros.cpp)
-target_link_libraries(mot ${OpenCV_LIBS} ${catkin_LIBRARIES})
+target_link_libraries(mot ${OpenCV_LIBS} ${catkin_LIBRARIES} ${MunkresLIB})
