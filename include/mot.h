@@ -6,6 +6,7 @@
 #define HIST_KALMAN_MOT_MOT_CHG_H
 
 #include <target_in_track.h>
+#include <object_tracking_result.h>
 #include <map>
 #include <string>
 #include <utility>
@@ -253,7 +254,26 @@ public:
         deleteUselessCandidates(objects_this[0]->observed_time_, camera_position);
     }
 
-    void getObjectsStates();
+    int getObjectsStates(std::vector<ObjectTrackingResult*> &result){
+        /** This function fetches the properties of objects in current tracking result and return objects number
+         * @Paramter result: a vector to store the result
+         * @Return number of the tracked objects
+         * **/
+        int counter = 0;
+        for(map_iterator_ = objects_map_.begin(); map_iterator_!= objects_map_.end(); map_iterator_++)
+        {
+            ObjectTrackingResult* ob_temp = new ObjectTrackingResult();
+            ob_temp->name_ = map_iterator_->second->name_;
+            ob_temp->label_ = map_iterator_->second->label_;
+            ob_temp->last_observed_time_ = map_iterator_->second->last_observed_time_;
+            ob_temp->position_ = map_iterator_->second->state_position_;
+            ob_temp->velocity_ = map_iterator_->second->state_velocity_;
+            ob_temp->sigma_ = map_iterator_->second->sigma_acc_;
+            result.push_back(ob_temp);
+            counter ++;
+        }
+        return counter;
+    }
 
 private:
     float similarityCalHistHS(ObjectInView* object, TargetInTrack* target_stored){

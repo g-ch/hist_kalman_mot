@@ -11,14 +11,29 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     image_transport
     yolo_ros_real_pose
+    message_generation
 )
 
 find_package(OpenCV REQUIRED)
 
+add_message_files(
+    FILES
+    ObjectInTracking.msg
+    ObjectsInTracking.msg
+)
+
+generate_messages(
+    DEPENDENCIES
+    std_msgs
+    geometry_msgs
+)
+
 catkin_package(
+    CATKIN_DEPENDS message_runtime
 )
 
 include_directories(${catkin_INCLUDE_DIRS})
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})

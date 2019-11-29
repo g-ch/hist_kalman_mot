@@ -31,13 +31,14 @@ public:
     Eigen::Vector3f state_position_;
     Eigen::Vector3f state_velocity_;
 
+    float sigma_acc_;  // Variance for acceleration
 
 private:
     Eigen::Vector3f observed_position_;
     std::vector<cv::KalmanFilter*> position_KF_;
     std::vector<cv::Mat> measurement_KF_;
     std::map<std::string, float> sigma_acc_map_;
-    float sigma_acc_;  // Variance for acceleration
+
 
 public:
     TargetInTrack(std::string name, ObjectInView* object, std::map<std::string, float> sigma_acc_map):

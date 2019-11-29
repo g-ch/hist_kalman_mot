@@ -4,15 +4,17 @@
 
 #include <ros/ros.h>
 #include <mot.h>
-#include <object_in_view.h>
 #include <vector>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <yolo_ros_real_pose/ObjectsRealPose.h>
+#include <hist_kalman_mot/ObjectInTracking.h>
+#include <hist_kalman_mot/ObjectsInTracking.h>
 
 MOT mot;
+ros::Publisher tracking_objects_pub;
 
 void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_real_pose::ObjectsRealPoseConstPtr& objects)
 {
@@ -31,8 +33,8 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     }
     cv::Mat image_this = cv_ptr->image;
 
+    /** Find the dynamic objects for tracking **/
     std::vector<ObjectInView*> objects_view_this;
-
     for(const auto & object_i : objects->result)
     {
         if(object_i.label == "person")
@@ -78,6 +80,28 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     cv::imshow("result", image_this);
     cv::waitKey(1);
 //    std::cout << "One callback processed!" << std::endl;
+
+    /** Get all the stored result in tracker and publish. **/
+    std::vector<ObjectTrackingResult*> results;
+    mot.getObjectsStates(results);
+
+    hist_kalman_mot::ObjectsInTracking objects_msg;
+    objects_msg.header.stamp = ros::Time::now();
+    for(const auto & result_i : results){
+        hist_kalman_mot::ObjectInTracking object;
+        object.name = result_i->name_;
+        object.label = result_i->label_;
+        object.position.x = result_i->position_[0];
+        object.position.y = result_i->position_[1];
+        object.position.z = result_i->position_[2];
+        object.velocity.x = result_i->velocity_[0];
+        object.velocity.y = result_i->velocity_[1];
+        object.velocity.z = result_i->velocity_[2];
+        object.last_observed_time = result_i->last_observed_time_;
+        object.sigma = result_i->sigma_;
+        objects_msg.result.push_back(object);
+    }
+    tracking_objects_pub.publish(objects_msg);
 }
 
 int main(int argc, char** argv)
@@ -96,6 +120,8 @@ int main(int argc, char** argv)
 
     /** Define callbacks **/
     ros::NodeHandle nh;
+    tracking_objects_pub = nh.advertise<hist_kalman_mot::ObjectsInTracking>("/mot/objects_in_tracking", 1);
+
     message_filters::Subscriber<sensor_msgs::Image> image_sub(nh, "/yolo_ros_real_pose/img_for_detected_objects", 1);
     message_filters::Subscriber<yolo_ros_real_pose::ObjectsRealPose> info_sub(nh, "/yolo_ros_real_pose/detected_objects", 1);
     message_filters::TimeSynchronizer<sensor_msgs::Image, yolo_ros_real_pose::ObjectsRealPose> sync(image_sub, info_sub, 10);
