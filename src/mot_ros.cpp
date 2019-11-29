@@ -12,20 +12,10 @@
 #include <message_filters/time_synchronizer.h>
 #include <yolo_ros_real_pose/ObjectsRealPose.h>
 
-using namespace std;
-
 MOT mot;
-vector<ObjectInView*> detected_objects;
 
 void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_real_pose::ObjectsRealPoseConstPtr& objects)
 {
-    static double last_update_time = 0.0;
-    if(image->header.stamp.toSec() < last_update_time){
-        std::cout << "$$$$$$$$$$ Time stamp in callback makes no sense! $$$$$$$$" << std::endl;
-        return;
-    }
-    last_update_time = image->header.stamp.toSec();
-
     if(objects->result.empty()){
         //ROS_INFO("No objects in view!");
         return;
@@ -70,8 +60,13 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
         return;
     }
 
-    /** If any dynamic object is detected, start matching. **/
-    mot.matchAndCreateObjects(objects_view_this);
+    /** If any dynamic object is detected, start matching. When there are two people insight.
+     * The matching process time is within 5ms and CPU usage is less than 8% on a intel i5-6500 CPU**/
+//    double start_time = ros::Time::now().toSec();
+    Eigen::Vector3f camera_position;
+    camera_position << 0.f, 0.f, 0.f; /// If camera is fixed, use zeros. The position of the camera and the objects should be measured in a same global coordinate
+    mot.matchAndCreateObjects(objects_view_this, camera_position);
+//    std::cout << "Update time is " << ros::Time::now().toSec() - start_time << std::endl;
 
     /** Show on image **/
     for(const auto & result_i : objects_view_this)
@@ -82,11 +77,24 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     }
     cv::imshow("result", image_this);
     cv::waitKey(1);
+//    std::cout << "One callback processed!" << std::endl;
 }
 
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "mot_ros");
+
+    /** Set parameters of MOT for better performance. Optional. **/
+    mot.setCandidateOutThreshold(6.0, 6.4);
+    mot.setMultiCueCoefficients(0.3f, 0.3f, 0.4f);
+    mot.setSimilarityGateValues(0.f, 0.1f, 0.2f);
+
+    std::map<std::string, float> sigma_acc_map;
+    sigma_acc_map["person"] = 1.5f;
+    sigma_acc_map["car"] = 2.f;
+    mot.setAccelerationVarianceMap(sigma_acc_map);
+
+    /** Define callbacks **/
     ros::NodeHandle nh;
     message_filters::Subscriber<sensor_msgs::Image> image_sub(nh, "/yolo_ros_real_pose/img_for_detected_objects", 1);
     message_filters::Subscriber<yolo_ros_real_pose::ObjectsRealPose> info_sub(nh, "/yolo_ros_real_pose/detected_objects", 1);

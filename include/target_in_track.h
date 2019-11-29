@@ -40,7 +40,7 @@ private:
     float sigma_acc_;  // Variance for acceleration
 
 public:
-    TargetInTrack(std::string name, ObjectInView* object):
+    TargetInTrack(std::string name, ObjectInView* object, std::map<std::string, float> sigma_acc_map):
             name_(std::move(name)),
             init_time_(object->observed_time_),
             last_observed_time_(object->observed_time_),
@@ -48,13 +48,11 @@ public:
             label_(object->label_),
             label_confidence_(object->label_confidence_),
             color_hist_(object->color_hist_),
-            observed_position_(object->position_)
-            {
+            observed_position_(object->position_),
+            sigma_acc_map_(std::move(sigma_acc_map))
+    {
 
-        /** Initialize acceleration sigma map, acc is a Gaussian distribution (0, sigma) **/
-        // TODO: add more sigma_acc_ categories
-        sigma_acc_map_["person"] = 1.f;
-        sigma_acc_map_["car"] = 3.f;
+        /** Initialize acceleration sigma, acc is a Gaussian distribution (0, sigma) **/
         resetSigmaAcc();
 
         /** Define Kalman filters and related matrices, x y z are processed individually **/
@@ -112,9 +110,9 @@ public:
     }
 
     float futurePassProbabilityMahalanobis(double delt_t, Eigen::Vector3f position, double cov_delt_t_limitation){
-        /** Paras @ delt_t: time interval from now to the experted prediction time
-         * Paras @ position: to predict whether the object will pass the position at the experted prediction time.
-         * Paras @ cov_delt_t_limitation: limit the delt_t to limit distribution_cov. In case the covariance is too large that passing every point is possible.
+        /** @param  delt_t: time interval from now to the experted prediction time
+         * @param  position: to predict whether the object will pass the position at the experted prediction time.
+         * @param  cov_delt_t_limitation: limit the delt_t to limit distribution_cov. In case the covariance is too large that passing every point is possible.
          * **/
         Eigen::Vector3f predicted_position_center = state_velocity_ * delt_t + state_position_;  /// Predict most likely position position. Constant velocity model
 //        std::cout << "position predicted = (" << predicted_position_center[0] << ", " << predicted_position_center[1] <<", "<< predicted_position_center[2]<<")"<<std::endl;
@@ -124,6 +122,16 @@ public:
         Eigen::Matrix3f distribution_cov = Eigen::Matrix3f::Identity() * sigma_acc_ * 0.25 * cov_delt_t * cov_delt_t;
 
         return (float)calMahalanobisDistance3D(position, predicted_position_center, distribution_cov);
+    }
+
+    Eigen::Vector3f futurePositionMostLikely(double time){
+        if(time < last_observed_time_){
+            std::cout << "Error: time for future position prediction should be in future. Return current position" << std::endl;
+            return state_position_;
+        }else{
+            Eigen::Vector3f predicted_position_center = state_velocity_ * (time-last_observed_time_) + state_position_;
+            return predicted_position_center;
+        }
     }
 
 private:
@@ -172,7 +180,7 @@ private:
             state_velocity_[i] = position_KF_[i]->statePost.at<float>(1);
         }
 //        std::cout << "time interval = "<< position_KF_[0]->transitionMatrix.at<float>(0,1) << std::endl;
-////        std::cout << "position observed = (" << observed_position[0] << ", " << observed_position[1]<<", "<< observed_position[2]<<")"<<std::endl;
+//        std::cout << "position observed = (" << observed_position[0] << ", " << observed_position[1]<<", "<< observed_position[2]<<")"<<std::endl;
 //        std::cout << "position corrected = (" << state_position_[0] << ", " << state_position_[1]<<", "<< state_position_[2]<<")"<<std::endl;
 //        std::cout << "velocity estimated = (" << state_velocity_[0] << ", " << state_velocity_[1]<<", "<< state_velocity_[2]<<")"<<std::endl;
     }
@@ -181,8 +189,8 @@ private:
         /** Reset acceleration variance when a new object comes or when the label of an object changes.
          * Return 1 if variance for this label is in the sigma_acc_map_. Otherwise use default_sigma_acc and return 0 **/
         static float default_sigma_acc = 1.f;
-        if(sigma_acc_map_.count(name_) > 0){
-            sigma_acc_ = sigma_acc_map_[name_];
+        if(sigma_acc_map_.count(label_) > 0){
+            sigma_acc_ = sigma_acc_map_[label_];
             return 1;
         }else{
             sigma_acc_ = default_sigma_acc;  // if no corresponding sigma_acc_ found, use default sigma_acc_.

@@ -26,7 +26,7 @@ public:
     /// Feature 2: color histogram
     cv::MatND color_hist_;
 
-    /// Feature 3: Position for Kalfilter
+    /// Feature 3: Position for Kalman filter. Every object has 3D position. If you don't want to use one dimension, set it to 0.
     Eigen::Vector3f position_;
 
 
