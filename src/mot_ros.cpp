@@ -109,9 +109,9 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "mot_ros");
 
     /** Set parameters of MOT for better performance. Optional. **/
-    mot.setCandidateOutThreshold(6.0, 6.4);
+    mot.setCandidateOutThreshold(10.0, 6.4);
     mot.setMultiCueCoefficients(0.3f, 0.3f, 0.4f);
-    mot.setSimilarityGateValues(0.f, 0.1f, 0.2f);
+    mot.setSimilarityGateValues(0.001f, 0.1f, 0.2f);
 
     std::map<std::string, float> sigma_acc_map;
     sigma_acc_map["person"] = 1.5f;

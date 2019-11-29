@@ -157,7 +157,6 @@ private:
 
         label_confidence_ = std::max(label_confidence_, 0.f);
         label_confidence_ = std::min(label_confidence_, 1.f);
-//        std::cout<<label_<<": confidence = "<<label_confidence_<<std::endl;
     }
 
     void updateHist(cv::MatND& color_hist){

@@ -198,10 +198,15 @@ public:
                 bool found_match = false;
                 for(int col=0; col<num_objects_in_storage; col++)  // col is one-to-one corresponding to map_iterator.
                 {
-                    if(matrix_cost(row, col) == 0.f && matrix_gate(row, col) > 0.f){  // Found a match
-                        allocation_result.push_back(map_iterator_->first);
-                        found_match = true;
-                        break;
+                    if(matrix_cost(row, col) == 0.f){  // Found a match
+                        if(matrix_gate(row, col) > 0.f){
+                            allocation_result.push_back(map_iterator_->first);
+                            found_match = true;
+                            break;
+                        }else{
+                            std::cout << "Gate failed for this allocation!" << std::endl;
+                        }
+
                     }
                     map_iterator_ ++;
                 }
