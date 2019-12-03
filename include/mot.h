@@ -38,6 +38,8 @@ private:
     float lamda_hist_;
     float lamda_label_;
 
+    int should_see_but_not_times_limitation_;
+
 public:
     MOT():id_counter_(0),
           use_feature_label_(true),
@@ -50,7 +52,8 @@ public:
           similarity_label_gate_(0.3f),
           lamda_position_(0.3),
           lamda_hist_(0.3),
-          lamda_label_(0.4)
+          lamda_label_(0.4),
+          should_see_but_not_times_limitation_(5)
     {
         /** Set a default sigma_acc_map **/
         sigma_acc_map_["person"] = 2.f;
@@ -118,6 +121,11 @@ public:
         for(auto iterator_ = sigma_acc_map.begin(); iterator_ != sigma_acc_map.end(); iterator_ ++){
             sigma_acc_map_[iterator_->first] = iterator_->second;
         }
+    }
+
+    void setShoudSeeButNotToleration(int times){
+        if(times < 1)
+        should_see_but_not_times_limitation_ = times;
     }
 
     void matchAndCreateObjects(std::vector<ObjectInView*> &objects_this, Eigen::Vector3f &camera_position){
@@ -280,6 +288,25 @@ public:
         return counter;
     }
 
+    void updateCurrentViewField(Eigen::Vector3f &origin_point, Eigen::Vector3f &middle_furthest_point, float &view_field_angle_half_rad, double &time_stamp){
+        /** Sometimes an object is predicted to be in the view field but the detector can't not find.
+         * Then this object should be deleted.
+         * If the object is too far, it will be deleted by distance limitation. So we don't consider linear distance here.
+         * **/
+        for(map_iterator_ = objects_map_.begin(); map_iterator_!= objects_map_.end(); map_iterator_++)
+        {
+            if(time_stamp - map_iterator_->second->last_observed_time_ < 1.f) continue;  //Update within two seconds, ignore
+            Eigen::Vector3f predicted_position = map_iterator_->second->state_position_ + map_iterator_->second->state_velocity_ * (time_stamp - map_iterator_->second->last_observed_time_);
+            Eigen::Vector3f dir_vector1 = middle_furthest_point - origin_point;
+            Eigen::Vector3f dir_vector2 = predicted_position - origin_point;
+            float cos_radian_angle =  dir_vector1.dot(dir_vector2) / dir_vector1.norm() / dir_vector2.norm();
+            float cos_view_field_angle = cos(view_field_angle_half_rad);
+            if(cos_radian_angle < cos_view_field_angle){  //should see
+                map_iterator_->second->should_see_but_not_times_ ++;
+            }
+        }
+    }
+
 private:
     float similarityCalHistHS(ObjectInView* object, TargetInTrack* target_stored){
         /** Similarity of color histogram in H and S channel. [0,1]
@@ -295,7 +322,7 @@ private:
             std::cout << "Error: delt_t should be positive!" << std::endl;
             return 0.f;
         }else{
-            return exp(-target_stored->futurePassProbabilityMahalanobis(delt_t, object->position_, 0.5));  // TODO: tune the cov_delt_t_limitation parameter
+            return exp(-target_stored->futurePassProbabilityMahalanobis(delt_t, object->position_, 0.5) * 0.1);  // TODO: tune the cov_delt_t_limitation parameter
         }
     }
 
@@ -336,8 +363,12 @@ private:
             Eigen::Vector3f distance_vector = map_iterator_->second->futurePositionMostLikely(time_now) - camera_position_now;
             double square_distance_predict_to_camera = distance_vector.squaredNorm();
 
-            if(time_from_last_update > time_out_threshold_ || square_distance_predict_to_camera > position_out_threshold_*position_out_threshold_){
+            int should_see_but_not_times = map_iterator_->second->should_see_but_not_times_;
+
+            if(time_from_last_update > time_out_threshold_ || square_distance_predict_to_camera > position_out_threshold_*position_out_threshold_
+                || should_see_but_not_times > should_see_but_not_times_limitation_){
                 std::cout << "Delete " << map_iterator_->first << std::endl;
+                if(should_see_but_not_times > should_see_but_not_times_limitation_) std::cout << "Delete because should see but not" << std::endl;
                 objects_map_.erase(map_iterator_++);
                 deleted_candidate_num ++;
             }else{

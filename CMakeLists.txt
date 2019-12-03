@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
     image_transport
     yolo_ros_real_pose
     message_generation
+    tf
 )
 
 find_package(OpenCV REQUIRED)

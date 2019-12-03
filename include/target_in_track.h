@@ -33,6 +33,8 @@ public:
 
     float sigma_acc_;  // Variance for acceleration
 
+    int should_see_but_not_times_;
+
 private:
     Eigen::Vector3f observed_position_;
     std::vector<cv::KalmanFilter*> position_KF_;
@@ -50,7 +52,8 @@ public:
             label_confidence_(object->label_confidence_),
             color_hist_(object->color_hist_),
             observed_position_(object->position_),
-            sigma_acc_map_(std::move(sigma_acc_map))
+            sigma_acc_map_(std::move(sigma_acc_map)),
+            should_see_but_not_times_(0)
     {
 
         /** Initialize acceleration sigma, acc is a Gaussian distribution (0, sigma) **/
@@ -106,6 +109,8 @@ public:
 
         last_observed_time_ = object->observed_time_;
         number_observed_times_ ++;
+
+        if(should_see_but_not_times_ > 0) should_see_but_not_times_ --;
 
         return 1;
     }
