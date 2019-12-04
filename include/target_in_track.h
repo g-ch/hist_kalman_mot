@@ -125,7 +125,7 @@ public:
 //        std::cout << "position cal point = (" << position[0] << ", " << position[1]<<", "<< position[2]<<")"<<std::endl;
 
         double cov_delt_t = std::min(cov_delt_t_limitation, delt_t);
-        Eigen::Matrix3f distribution_cov = Eigen::Matrix3f::Identity() * sigma_acc_ * 0.25 * cov_delt_t * cov_delt_t;
+        Eigen::Matrix3f distribution_cov = Eigen::Matrix3f::Identity() * sigma_acc_; // * 0.25 * cov_delt_t * cov_delt_t; // something wrong with this
 
         return (float)calMahalanobisDistance3D(position, predicted_position_center, distribution_cov);
     }

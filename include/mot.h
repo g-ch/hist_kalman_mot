@@ -128,10 +128,9 @@ public:
         should_see_but_not_times_limitation_ = times;
     }
 
-    void matchAndCreateObjects(std::vector<ObjectInView*> &objects_this, Eigen::Vector3f &camera_position){
+    void matchAndCreateObjects(std::vector<ObjectInView*> &objects_this){
         /** This function is to update tracking results with newly detected objects.
          * @Parameter objects_this: a vector to store all the dynmaic objects detected in view.
-         * @Parameter camera_position: the position of the camera required for object candidate delete. If camera is fixed, use zeros. The position of the camera and the objects should be measured in a same global coordinate
          * **/
 
         /** Check if empty **/
@@ -262,9 +261,6 @@ public:
                 id_counter_ ++;
             }
         }
-
-        /** Delete object candidates in storage which are time-out or position-out **/
-        deleteUselessCandidates(objects_this[0]->observed_time_, camera_position);
     }
 
     int getObjectsStates(std::vector<ObjectTrackingResult*> &result){
@@ -288,23 +284,31 @@ public:
         return counter;
     }
 
-    void updateCurrentViewField(Eigen::Vector3f &origin_point, Eigen::Vector3f &middle_furthest_point, float &view_field_angle_half_rad, double &time_stamp){
+    void updateCurrentViewField(bool if_delete_objects_should_see_but_not, Eigen::Vector3f &origin_point, Eigen::Vector3f &middle_furthest_point, float &view_field_angle_half_rad, double &time_stamp){
         /** Sometimes an object is predicted to be in the view field but the detector can't not find.
          * Then this object should be deleted.
          * If the object is too far, it will be deleted by distance limitation. So we don't consider linear distance here.
+         *@Parameter origin_point: the position of the camera required for object candidate delete. If camera is fixed, use zeros.
+         * The position of the camera and the objects should be measured in a same global coordinate
          * **/
-        for(map_iterator_ = objects_map_.begin(); map_iterator_!= objects_map_.end(); map_iterator_++)
-        {
-            if(time_stamp - map_iterator_->second->last_observed_time_ < 1.f) continue;  //Update within two seconds, ignore
-            Eigen::Vector3f predicted_position = map_iterator_->second->state_position_ + map_iterator_->second->state_velocity_ * (time_stamp - map_iterator_->second->last_observed_time_);
-            Eigen::Vector3f dir_vector1 = middle_furthest_point - origin_point;
-            Eigen::Vector3f dir_vector2 = predicted_position - origin_point;
-            float cos_radian_angle =  dir_vector1.dot(dir_vector2) / dir_vector1.norm() / dir_vector2.norm();
-            float cos_view_field_angle = cos(view_field_angle_half_rad);
-            if(cos_radian_angle < cos_view_field_angle){  //should see
-                map_iterator_->second->should_see_but_not_times_ ++;
+
+        if(if_delete_objects_should_see_but_not){
+            for(map_iterator_ = objects_map_.begin(); map_iterator_!= objects_map_.end(); map_iterator_++)
+            {
+                if(time_stamp - map_iterator_->second->last_observed_time_ < 1.f) continue;  //Update within two seconds, ignore
+                Eigen::Vector3f predicted_position = map_iterator_->second->state_position_ + map_iterator_->second->state_velocity_ * (time_stamp - map_iterator_->second->last_observed_time_);
+                Eigen::Vector3f dir_vector1 = middle_furthest_point - origin_point;
+                Eigen::Vector3f dir_vector2 = predicted_position - origin_point;
+                float cos_radian_angle =  dir_vector1.dot(dir_vector2) / dir_vector1.norm() / dir_vector2.norm();
+                float cos_view_field_angle = cos(view_field_angle_half_rad);
+                if(cos_radian_angle < cos_view_field_angle){  //should see
+                    map_iterator_->second->should_see_but_not_times_ ++;
+                }
             }
         }
+
+        /** Delete object candidates in storage which are time-out or position-out **/
+        deleteUselessCandidates(time_stamp, origin_point);
     }
 
 private:
