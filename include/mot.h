@@ -254,9 +254,6 @@ public:
                 id_counter_ ++;
             }
         }
-
-        /** Delete object candidates in storage which are time-out or position-out **/
-        deleteUselessCandidates(objects_this[0]->observed_time_, camera_position);
     }
 
     int getObjectsStates(std::vector<ObjectTrackingResult*> &result){
@@ -280,6 +277,11 @@ public:
         return counter;
     }
 
+    void checkUselessObjects(Eigen::Vector3f &camera_position,  double &time_stamp){
+        /** Delete object candidates in storage which are time-out or position-out **/
+        deleteUselessCandidates(time_stamp, camera_position);
+    }
+
 private:
     float similarityCalHistHS(ObjectInView* object, TargetInTrack* target_stored){
         /** Similarity of color histogram in H and S channel. [0,1]
@@ -295,7 +297,7 @@ private:
             std::cout << "Error: delt_t should be positive!" << std::endl;
             return 0.f;
         }else{
-            return exp(-target_stored->futurePassProbabilityMahalanobis(delt_t, object->position_, 0.5));  // TODO: tune the cov_delt_t_limitation parameter
+            return exp(-target_stored->futurePassProbabilityMahalanobis(delt_t, object->position_, 0.5) * 0.1);  // TODO: tune the cov_delt_t_limitation parameter
         }
     }
 

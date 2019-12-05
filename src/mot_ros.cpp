@@ -104,6 +104,13 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     tracking_objects_pub.publish(objects_msg);
 }
 
+void checkObjectsStateCallback(const ros::TimerEvent& e){
+    Eigen::Vector3f camera_position;
+    camera_position << 0.f, 0.f, 0.f;
+    double time_now = ros::Time::now().toSec();
+    mot.checkUselessObjects(camera_position, time_now); /// This will delete timeout or position out objects
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "mot_ros");
@@ -126,6 +133,8 @@ int main(int argc, char** argv)
     message_filters::Subscriber<yolo_ros_real_pose::ObjectsRealPose> info_sub(nh, "/yolo_ros_real_pose/detected_objects", 1);
     message_filters::TimeSynchronizer<sensor_msgs::Image, yolo_ros_real_pose::ObjectsRealPose> sync(image_sub, info_sub, 10);
     sync.registerCallback(boost::bind(&objectsCallback, _1, _2));
+
+    ros::Timer timer = nh.createTimer(ros::Duration(0.1), checkObjectsStateCallback);
 
     ros::spin();
     return 0;
