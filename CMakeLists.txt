@@ -10,7 +10,6 @@ find_package(catkin REQUIRED COMPONENTS
     cv_bridge
     sensor_msgs
     image_transport
-    yolo_ros_real_pose
     message_generation
     tf
 )
@@ -35,6 +34,7 @@ catkin_package(
 
 include_directories(${catkin_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories("../../devel/include")
 
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
@@ -50,4 +50,5 @@ set(MunkresLIB
         )
 
 add_executable(mot src/mot_ros.cpp)
+add_dependencies(mot        ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} )
 target_link_libraries(mot ${OpenCV_LIBS} ${catkin_LIBRARIES} ${MunkresLIB})
