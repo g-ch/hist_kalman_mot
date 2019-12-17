@@ -66,16 +66,17 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     /// Update yaw0 here, should be among [-PI, PI]
     yaw0 = atan2(2*(quad.w()*quad.z()+quad.x()*quad.y()), 1-2*(quad.z()*quad.z()+quad.y()*quad.y()));
 
-    static bool init_head_time = true;
-    static double init_head_yaw = 0.0;
-    if(init_head_time){
-        init_head_yaw = objects->result[0].head_yaw;
-        init_head_time = false;
-        ROS_INFO("Head Init Yaw in motor coordinate=%f", init_head_yaw);
-    }
-    else {
-        motor_yaw = -objects->result[0].head_yaw + init_head_yaw;
-    }
+    // static bool init_head_time = true;
+    // static double init_head_yaw = 0.0;
+    // if(init_head_time){
+    //     init_head_yaw = objects->result[0].head_yaw;
+    //     init_head_time = false;
+    //     ROS_INFO("Head Init Yaw in motor coordinate=%f", init_head_yaw);
+    // }
+    // else {
+    //     motor_yaw = -objects->result[0].head_yaw + init_head_yaw;
+    // }
+    motor_yaw = objects->result[0].head_yaw;
 
 
     /** Create  transform matrix**/
