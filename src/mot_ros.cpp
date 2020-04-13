@@ -21,7 +21,7 @@
 #define PI_2 1.5708
 
 MOT mot;
-ros::Publisher tracking_objects_pub;
+ros::Publisher tracking_objects_pub, tracking_prediction_pub;
 
 Eigen::Quaternionf quad(1.0, 0.0, 0.0, 0.0);
 double yaw0 = 0.0;
@@ -29,6 +29,9 @@ Eigen::Vector3f p0;
 double motor_yaw = 0.0;
 double motor_yaw_rate = 0.0;
 double time_now_to_compare_in_publish = 0.0;
+
+bool if_in_simulation = true;
+
 
 void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_real_pose::ObjectsRealPoseConstPtr& objects)
 {
@@ -47,24 +50,39 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     }
     cv::Mat image_this = cv_ptr->image;
     /** Update uav pose and motor yaw in this frame **/
-    p0(0) = objects->result[0].local_pose.position.y;
-    p0(1) = -objects->result[0].local_pose.position.x;
-    p0(2) = objects->result[0].local_pose.position.z;
 
-    quad.x() = objects->result[0].local_pose.orientation.x;
-    quad.y() = objects->result[0].local_pose.orientation.y;
-    quad.z() = objects->result[0].local_pose.orientation.z;
-    quad.w() = objects->result[0].local_pose.orientation.w;
+    if(!if_in_simulation){
+        p0(0) = objects->result[0].local_pose.position.y;
+        p0(1) = -objects->result[0].local_pose.position.x;
+        p0(2) = objects->result[0].local_pose.position.z;
 
-    Eigen::Quaternionf q_uav(0, 0, 0, 1);
-    Eigen::Quaternionf axis_uav = quad * q_uav * quad.inverse();
-    axis_uav.w() = cos(-PI_2/2.0);
-    axis_uav.x() = axis_uav.x() * sin(-PI_2/2.0);
-    axis_uav.y() = axis_uav.y() * sin(-PI_2/2.0);
-    axis_uav.z() = axis_uav.z() * sin(-PI_2/2.0);
-    quad = quad * axis_uav;
-    /// Update yaw0 here, should be among [-PI, PI]
-    yaw0 = atan2(2*(quad.w()*quad.z()+quad.x()*quad.y()), 1-2*(quad.z()*quad.z()+quad.y()*quad.y()));
+        quad.x() = objects->result[0].local_pose.orientation.x;
+        quad.y() = objects->result[0].local_pose.orientation.y;
+        quad.z() = objects->result[0].local_pose.orientation.z;
+        quad.w() = objects->result[0].local_pose.orientation.w;
+
+        Eigen::Quaternionf axis_motor;
+        axis_motor.w() = cos(-PI_2/2.0);
+        axis_motor.x() = 0;
+        axis_motor.y() = 0;
+        axis_motor.z() = sin(-PI_2/2.0);
+        Eigen::Quaternionf quad = quad * axis_motor;
+
+        /// Update yaw0 here, should be among [-PI, PI]
+        yaw0 = atan2(2*(quad.w()*quad.z()+quad.x()*quad.y()), 1-2*(quad.z()*quad.z()+quad.y()*quad.y()));
+    }else{
+        p0(0) = objects->result[0].local_pose.position.x;
+        p0(1) = objects->result[0].local_pose.position.y;
+        p0(2) = objects->result[0].local_pose.position.z;
+
+        quad.x() = objects->result[0].local_pose.orientation.x;
+        quad.y() = objects->result[0].local_pose.orientation.y;
+        quad.z() = objects->result[0].local_pose.orientation.z;
+        quad.w() = objects->result[0].local_pose.orientation.w;
+        yaw0 = atan2(2*(quad.w()*quad.z()+quad.x()*quad.y()), 1-2*(quad.z()*quad.z()+quad.y()*quad.y()));
+    }
+
+    
 
     // static bool init_head_time = true;
     // static double init_head_yaw = 0.0;
@@ -80,13 +98,12 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
 
 
     /** Create  transform matrix**/
-    Eigen::Quaternionf q1(0, 0, 0, 1);
-    Eigen::Quaternionf axis = quad * q1 * quad.inverse();
-    axis.w() = cos(motor_yaw/2.0);
-    axis.x() = axis.x() * sin(motor_yaw/2.0);
-    axis.y() = axis.y() * sin(motor_yaw/2.0);
-    axis.z() = axis.z() * sin(motor_yaw/2.0);
-    Eigen::Quaternionf quad_rotate = quad * axis;
+    Eigen::Quaternionf axis_motor;
+    axis_motor.w() = cos(motor_yaw/2.0);
+    axis_motor.x() = 0;
+    axis_motor.y() = 0;
+    axis_motor.z() = sin(motor_yaw/2.0);
+    Eigen::Quaternionf quad_rotate = quad * axis_motor;
 
     Eigen::Matrix4f transform = Eigen::Matrix4f::Identity();
     transform.block(0, 0, 3, 3) = Eigen::Matrix3f(quad_rotate);
@@ -198,24 +215,34 @@ void publishResultsCallback(const ros::TimerEvent& e){
     static tf::TransformBroadcaster br_ros;
     static tf::Transform transform_ros;
 
-    hist_kalman_mot::ObjectsInTracking objects_msg;
-    objects_msg.header.stamp = ros::Time::now();
+    hist_kalman_mot::ObjectsInTracking objects_msg, objects_predicted_msg;
+    objects_predicted_msg.header.stamp = objects_msg.header.stamp = ros::Time::now();
+    double current_time =  ros::Time::now().toSec();
+
     for(const auto & result_i : results){
         hist_kalman_mot::ObjectInTracking object;
         object.name = result_i->name_;
         object.label = result_i->label_;
         object.position.x = result_i->position_[0];
         object.position.y = result_i->position_[1];
-        object.position.z = result_i->position_[2];
+        object.position.z = 1.2; //result_i->position_[2];  for Obstacles on the ground !!!!!
         object.velocity.x = result_i->velocity_[0];
         object.velocity.y = result_i->velocity_[1];
-        object.velocity.z = result_i->velocity_[2];
+        object.velocity.z = 0.0; //->velocity_[2];
         object.last_observed_time = result_i->last_observed_time_;
         object.sigma = result_i->sigma_;
         objects_msg.result.push_back(object);
+
+        //predicted position
+        double delt_t = current_time - object.last_observed_time;
+        object.position.x = result_i->position_[0] + object.velocity.x * delt_t;
+        object.position.y = result_i->position_[1] + object.velocity.y * delt_t;;
+        object.position.z = result_i->position_[2] + object.velocity.z * delt_t;;
+        objects_predicted_msg.result.push_back(object);  
     }
 
     tracking_objects_pub.publish(objects_msg);
+    tracking_prediction_pub.publish(objects_predicted_msg);
 }
 
 
@@ -224,22 +251,23 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "mot_ros");
 
     /** Set parameters of MOT for better performance. Optional. **/
-    mot.setCandidateOutThreshold(5.0, 6.4);
-    mot.setMultiCueCoefficients(0.3f, 0.3f, 0.4f);
-    mot.setSimilarityGateValues(0.1f, 0.1f, 0.2f);
+    mot.setCandidateOutThreshold(5.0, 6.4);  // Time(second), distance(m)
+    mot.setMultiCueCoefficients(0.7f, 0.2f, 0.1f); // lamda_position, lamda_hist, lamda_label
+    mot.setSimilarityGateValues(0.06f, 0.05f, 0.1f);
 
     std::map<std::string, float> sigma_acc_map;
     sigma_acc_map["person"] = 1.5f;
+    sigma_acc_map["robot"] = 1.5f;
     sigma_acc_map["car"] = 2.f;
     mot.setAccelerationVarianceMap(sigma_acc_map);
     mot.setShoudSeeButNotToleration(10);
-
 
     p0 << 0.0, 0.0, 0.0;
 
     /** Define callbacks **/
     ros::NodeHandle nh;
     tracking_objects_pub = nh.advertise<hist_kalman_mot::ObjectsInTracking>("/mot/objects_in_tracking", 1);
+    tracking_prediction_pub = nh.advertise<hist_kalman_mot::ObjectsInTracking>("/mot/objects_in_tracking_predicted", 1);
 
     message_filters::Subscriber<sensor_msgs::Image> image_sub(nh, "/yolo_ros_real_pose/img_for_detected_objects", 1);
     message_filters::Subscriber<yolo_ros_real_pose::ObjectsRealPose> info_sub(nh, "/yolo_ros_real_pose/detected_objects", 1);
