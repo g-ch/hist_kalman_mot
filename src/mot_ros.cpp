@@ -253,9 +253,9 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "mot_ros");
 
     /** Set parameters of MOT for better performance. Optional. **/
-    mot.setCandidateOutThreshold(5.0, 6.4);  // Time(second), distance(m)
-    mot.setMultiCueCoefficients(0.7f, 0.2f, 0.1f); // lamda_position, lamda_hist, lamda_label
-    mot.setSimilarityGateValues(0.06f, 0.05f, 0.1f);
+    mot.setCandidateOutThreshold(5.0, 6.4);  // Time(second), distance(m) //sim: 5.0, 6.4 real: 8.0, 6.4
+    mot.setMultiCueCoefficients(0.4f, 0.3f, 0.4f); // lamda_position, lamda_hist, lamda_label, sim: 0.7f, 0.2f, 0.1f, real: 0.4, 0.3, 0.4
+    mot.setSimilarityGateValues(0.001f, 0.1f, 0.2f);  //sim: 0.06f, 0.05f, 0.1f,  real:0.001, 0.1, 0.2 
 
     std::map<std::string, float> sigma_acc_map;
     sigma_acc_map["person"] = 1.5f;
