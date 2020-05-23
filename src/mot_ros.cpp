@@ -30,7 +30,7 @@ double motor_yaw = 0.0;
 double motor_yaw_rate = 0.0;
 double time_now_to_compare_in_publish = 0.0;
 
-bool if_in_simulation = true;
+bool if_in_simulation = false;
 
 
 void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_real_pose::ObjectsRealPoseConstPtr& objects)
@@ -61,15 +61,17 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
         quad.z() = objects->result[0].local_pose.orientation.z;
         quad.w() = objects->result[0].local_pose.orientation.w;
 
-        Eigen::Quaternionf axis_motor;
-        axis_motor.w() = cos(-PI_2/2.0);
-        axis_motor.x() = 0;
-        axis_motor.y() = 0;
-        axis_motor.z() = sin(-PI_2/2.0);
-        Eigen::Quaternionf quad = quad * axis_motor;
-
-        /// Update yaw0 here, should be among [-PI, PI]
+        Eigen::Quaternionf q1(0, 0, 0, 1);
+        Eigen::Quaternionf axis = quad * q1 * quad.inverse();
+        axis.w() = cos(-PI_2/2.0);
+        axis.x() = axis.x() * sin(-PI_2/2.0);
+        axis.y() = axis.y() * sin(-PI_2/2.0);
+        axis.z() = axis.z() * sin(-PI_2/2.0);
+        quad = quad * axis;
+        /// Update yaw0 here, should be among [-PI, PI] 
         yaw0 = atan2(2*(quad.w()*quad.z()+quad.x()*quad.y()), 1-2*(quad.z()*quad.z()+quad.y()*quad.y()));
+
+	    std::cout << "Mot yaw0="<<yaw0<<std::endl;
     }else{
         p0(0) = objects->result[0].local_pose.position.x;
         p0(1) = objects->result[0].local_pose.position.y;
@@ -122,7 +124,7 @@ void objectsCallback(const sensor_msgs::ImageConstPtr& image, const yolo_ros_rea
     std::vector<ObjectInView*> objects_view_this;
     for(const auto & object_i : objects->result)
     {
-        if(object_i.label == "drone" || object_i.label == "robot")
+        if(object_i.label == "robot")  //object_i.label == "drone" || 
         {
             auto* ob_temp = new ObjectInView();
             ob_temp->name_ = object_i.label;
